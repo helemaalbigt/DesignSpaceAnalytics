@@ -7,6 +7,10 @@ public class LookAtPointRecorder : MonoBehaviour {
 
     [SerializeField]
     private float _frameRecordInterval;
+    [SerializeField]
+    private Transform _rootReference;
+    private LayerMask _layerAllowToCollideWithLook;
+    public bool _autoStartRecord;
 
     [Header("Debug Viewer")]
     [SerializeField]
@@ -14,18 +18,29 @@ public class LookAtPointRecorder : MonoBehaviour {
     [SerializeField]
     private float _timeSinceStartRecording;
 
-    public LookPath _lookPathAffected = new LookPath();
+    public LookPath _lookPathAffected;
     public Transform _trackedTransform;
     public LookPathToJSON _lookPathConverter;
-    void Start() {
+    public LookPathToMySQLAsJson _lookPathToDB;
+    public KeyCode _keycodeToStopRecording;
 
+    void Start() {
         InvokeRepeating("RecordFrame", 0, _frameRecordInterval);
+        if (_autoStartRecord) StartRecord();
     }
 
     void RecordFrame() {
         if (_trackedTransform == null) return;
         if (!_recording) return;
-        _lookPathAffected.AddLookState(_timeSinceStartRecording, _trackedTransform.position, _trackedTransform.position + transform.forward);
+        Vector3 rootPoint = _rootReference.InverseTransformPoint(_trackedTransform.position);
+
+        RaycastHit hit;
+        Vector3 lookAtPoint = Vector3.zero;
+        if (Physics.Raycast(_trackedTransform.position, _trackedTransform.forward, out hit))
+            lookAtPoint = hit.point;
+        lookAtPoint = _rootReference.InverseTransformPoint(lookAtPoint);
+
+        _lookPathAffected.AddLookState(_timeSinceStartRecording, rootPoint, lookAtPoint);
 
     }
 
@@ -33,17 +48,16 @@ public class LookAtPointRecorder : MonoBehaviour {
         if (_recording) {
             _timeSinceStartRecording += Time.deltaTime;
         }
-        if (Input.GetKeyDown(KeyCode.Return))
+        if (Input.GetKeyDown(_keycodeToStopRecording))
             if (_recording)
                 StopRecord();
-            else
-                StartRecord();
     }
 
 
 
     void StartRecord() {
         _recording = true;
+        _lookPathAffected = new LookPath(SystemInfo.deviceUniqueIdentifier);
         _lookPathAffected.Reset();
 
     }
@@ -51,6 +65,9 @@ public class LookAtPointRecorder : MonoBehaviour {
     void StopRecord()
     {
         _recording = false;
+        if(_lookPathConverter)
         _lookPathConverter.RecordPath(_lookPathAffected);
+        if(_lookPathToDB)
+        _lookPathToDB.PostLookPathData(_lookPathAffected);
     }
 }

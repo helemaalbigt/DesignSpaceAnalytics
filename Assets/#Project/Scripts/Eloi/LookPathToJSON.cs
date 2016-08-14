@@ -10,6 +10,7 @@ public class LookPathToJSON : MonoBehaviour {
 
 
     public void RecordPath(LookPath path) {
+
         QuickSerializedAccess.SaveFile<LookPath>(path, _directoryPath, "path_" + DateTime.Now.ToString("yyyyMMddHHmmssfff"),"json");
    }
 
